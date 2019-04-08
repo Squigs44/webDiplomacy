@@ -42,9 +42,24 @@ class UserResultData
 	public $userType;
 }
 
+class PageObject
+{
+	public $name;
+	public $value;
+
+	public function __construct($n, $v)
+	{
+		$this->name=$n;
+		$this->value=$v;
+	}
+}
+
 // User Search Variables
 $UsersData = array();
+$PageData = array();
+$maxPage = 0;
 $username = '';
+$tempUser = '';
 $username2 = '';
 $searchType1 = 'Starts';
 $type = 'none';
@@ -60,14 +75,16 @@ $seeSilver = 'unchecked';
 $seeBronze = 'unchecked';
 $seeAll = 'unchecked';
 $seeNewForumLink = 'unchecked';
-$limit = 50;
+$resultsPerPage = 25;
 $sortCol = 'id';
 $sortType = 'asc';
+$pagenum = 1;
 
 // Use db escape to guard against special characters.
 if ( isset($_REQUEST['username']) && $_REQUEST['username'] && strlen($_REQUEST['username']) )
 {
 	$username = $DB->escape($_REQUEST['username']);
+	$tempUser = $username;
 }
 
 if ( isset($_REQUEST['username2']) && $_REQUEST['username2'] && strlen($_REQUEST['username2']) )
@@ -91,12 +108,12 @@ if ( isset($_REQUEST['seeBanned'])) { $seeBanned='checked'; }
 if ( isset($_REQUEST['seeGold'])) { $seeGold='checked'; }
 if ( isset($_REQUEST['seeSilver'])) { $seeSilver='checked'; }
 if ( isset($_REQUEST['seeBronze'])) { $seeBronze='checked'; }
-if ( isset($_REQUEST['limit']))
+if ( isset($_REQUEST['pagenum'])) { $pagenum=$_REQUEST['pagenum']; }
+if ( isset($_REQUEST['resultsPerPage']))
 {
-	if ($_REQUEST['limit'] == '100') { $limit=100; }
-	else if ($_REQUEST['limit'] == '200') { $limit=200; }
-	else if ($_REQUEST['limit'] == '500') { $limit=500; }
-	else if ($_REQUEST['limit'] == '1000') { $limit=1000; }
+	if ($_REQUEST['resultsPerPage'] == '50') { $resultsPerPage=50; }
+	else if ($_REQUEST['resultsPerPage'] == '75') { $resultsPerPage=75; }
+	else if ($_REQUEST['resultsPerPage'] == '100') { $resultsPerPage=100; }
 }
 if ( isset($_REQUEST['sortCol']))
 {
@@ -323,14 +340,13 @@ print '<FORM class="advancedSearch" method="get" action="detailedSearch.php">
 			<option value="desc">Descending</option>
 		</select>
 		</br></br>
-		<strong># of results to show (do not pick more then 100 on a phone or tablet)</strong>
+		<strong># of results to show per page</strong>
 		</br>
-		<select  class = "advancedSearch" name="limit">
-			<option selected="selected" value="50">50</option>
+		<select  class = "advancedSearch" name="resultsPerPage">
+			<option selected="selected" value="25">25</option>
+			<option value="50">50</option>
+			<option value="75">75</option>
 			<option value="100">100</option>
-			<option value="200">200</option>
-			<option value="500">500</option>
-			<option value="1000">1,000</option>
 		</select>
 		</p>
 
@@ -402,7 +418,7 @@ print '<FORM class="advancedSearch" method="get" action="detailedSearch.php">
 		</br>
 		<select  class = "advancedSearch" name="sortColg">
 			<option selected="selected" value="id">id</option>
-			<option value="username">Game Name</option>
+			<option value="gameName">Game Name</option>
 			<option value="pot">Pot</option>
 			<option value="phaseMinutes">Phase Length</option>
 			<option value="watchedGames">Number of Spectators</option>
@@ -413,14 +429,13 @@ print '<FORM class="advancedSearch" method="get" action="detailedSearch.php">
 			<option value="desc">Descending</option>
 		</select>
 		</br></br>
-		<strong># of results to show (do not pick more then 100 on a phone or tablet)</strong>
+		<strong># of results to show per page</strong>
 		</br>
-		<select  class = "advancedSearch" name="limit">
-			<option selected="selected" value="50">50</option>
+		<select  class = "advancedSearch" name="resultsPerPage">
+			<option selected="selected" value="25">25</option>
+			<option value="50">50</option>
+			<option value="75">75</option>
 			<option value="100">100</option>
-			<option value="200">200</option>
-			<option value="500">500</option>
-			<option value="1000">1,000</option>
 		</select>
 		</p>
 
@@ -469,7 +484,7 @@ print '<FORM class="advancedSearch" method="get" action="detailedSearch.php">
 		</br>
 		<select  class = "advancedSearch" name="sortColg">
 			<option selected="selected" value="id">id</option>
-			<option value="username">Game Name</option>
+			<option value="gameName">Game Name</option>
 			<option value="pot">Pot</option>
 			<option value="phaseMinutes">Phase Length</option>
 			<option value="watchedGames">Number of Spectators</option>
@@ -480,14 +495,13 @@ print '<FORM class="advancedSearch" method="get" action="detailedSearch.php">
 			<option value="desc">Descending</option>
 		</select>
 		</br></br>
-		<strong># of results to show (do not pick more then 100 on a phone or tablet)</strong>
+		<strong># of results to show per page</strong>
 		</br>
-		<select  class = "advancedSearch" name="limit">
-			<option selected="selected" value="50">50</option>
+		<select  class = "advancedSearch" name="resultsPerPage">
+			<option selected="selected" value="25">25</option>
+			<option value="50">50</option>
+			<option value="75">75</option>
 			<option value="100">100</option>
-			<option value="200">200</option>
-			<option value="500">500</option>
-			<option value="1000">1,000</option>
 		</select>
 		</p>
 
@@ -547,7 +561,7 @@ if ($tab == 'UserSearch')
 		}
 
 		$sql = $sql . " ORDER BY u.".$sortCol." ".$sortType." ";
-		$sql = $sql . " Limit ". $limit .";";
+		$sql = $sql . " Limit ". ($resultsPerPage * ($pagenum - 1)) . "," . $resultsPerPage .";";
 
 		$tablChecked = $DB->sql_tabl($sql);
 
@@ -604,7 +618,8 @@ if ($tab == 'UserSearch')
 		}
 
 		list($totalResults) = $DB->sql_row($sqlCounter);
-		print '<p class = "modTools"> Showing a max of '.$limit.' results from '.$totalResults.' total results</p>';
+		$maxPage = ceil($totalResults / $resultsPerPage);
+		print '<p class = "modTools"> Showing results '.min(((($pagenum - 1) * $resultsPerPage)+1),$totalResults).' to '.min(($pagenum * $resultsPerPage),$totalResults).' of '.$totalResults.' total results. </br>';
 
 		print "<TABLE class='advancedSearch'>";
 		print "<tr>";
@@ -779,13 +794,18 @@ else if ($tab == 'GameSearch')
 		if ($sortColg == 'watchedGames')
 		{
 			$sql = $sql . " ORDER BY watchedGames ".$sortType." ";
-			$sql = $sql . " Limit ". $limit .";";
+			$sql = $sql . " Limit ". ($resultsPerPage * ($pagenum - 1)) . "," . $resultsPerPage .";";
 
+		}
+		elseif ($sortColg == 'gameName')
+		{
+			$sql = $sql . " ORDER BY g.name ".$sortType." ";
+			$sql = $sql . " LIMIT ". ($resultsPerPage * ($pagenum - 1)) . "," . $resultsPerPage .";";
 		}
 		else
 		{
 			$sql = $sql . " ORDER BY g.".$sortColg." ".$sortType." ";
-			$sql = $sql . " Limit ". $limit .";";
+			$sql = $sql . " Limit ". ($resultsPerPage * ($pagenum - 1)) . "," . $resultsPerPage .";";
 		}
 
 		$tablChecked = $DB->sql_tabl($sql);
@@ -813,7 +833,8 @@ else if ($tab == 'GameSearch')
 		}
 
 		list($totalResults) = $DB->sql_row($sqlCounter);
-		print '<p class = "modTools"> Showing a max of '.$limit.' results from '.$totalResults.' total results</p>';
+		$maxPage = ceil($totalResults / $resultsPerPage);
+		print '<p class = "modTools"> Showing results '.min(((($pagenum - 1) * $resultsPerPage)+1),$totalResults).' to '.min(($pagenum * $resultsPerPage),$totalResults).' of '.$totalResults.' total results. </br>';
 
 		printGameResults($seeVariant, $seeGamename, $seeGameOver, $seePot, $seeInviteCode, $seePotType, $seeJoinable, $seePhaseLength,
 		$seeAnon, $seePressType, $seeDirector, $seeMinRR, $seeDrawType, $seeWatchedCount, $GamesData);
@@ -849,9 +870,9 @@ else if ($tab == 'GamesByUser')
 		$sql = "SELECT g.id, g.name, g.pot,g.phase, g.gameOver, g.processStatus, ( CASE WHEN g.password IS NULL THEN 'False' ELSE 'True' END ) AS password,
 				g.potType, g.minimumBet, g.phaseMinutes, g.anon, g.pressType, g.directorUserID, g.minimumReliabilityRating, g.drawType,
 				(select count(1) from wD_WatchedGames w where w.gameID = g.id) AS watchedGames
-				FROM wD_Games g WHERE g.gameOver <> 'No' and ((select count(1) from wD_Members m where m.userID = ".$paramUserID." and m.gameID = g.id) > 0 ) ";
+				FROM wD_Games g inner join wD_Members m on m.gameID = g.id WHERE g.phase = 'Finished' and  m.userID = ".$paramUserID." ";
 
-		$sqlCounter = "SELECT count(1) FROM wD_Games g WHERE g.gameOver <> 'No' and ((select count(1) from wD_Members m where m.userID = ".$paramUserID." and m.gameID = g.id) > 0) ";
+		$sqlCounter = "SELECT count(1) FROM wD_Games g inner join wD_Members m on m.gameID = g.id WHERE g.phase = 'Finished' and m.userID = ".$paramUserID." ";
 		list($checkedUsername) = $DB->sql_row("SELECT username FROM wD_Users WHERE id = ".$paramUserID);
 
 		if ($paramUserID == $User->id ) { $userMessage =  "Showing my completed games.</p>";}
@@ -872,12 +893,17 @@ else if ($tab == 'GamesByUser')
 		if ($sortColg == 'watchedGames')
 		{
 			$sql = $sql . " ORDER BY watchedGames ".$sortType." ";
-			$sql = $sql . " Limit ". $limit .";";
+			$sql = $sql . " Limit ". ($resultsPerPage * ($pagenum - 1)) . "," . $resultsPerPage .";";
+		}
+		elseif ($sortColg == 'gameName')
+		{
+			$sql = $sql . " ORDER BY g.name ".$sortType." ";
+			$sql = $sql . " LIMIT ". ($resultsPerPage * ($pagenum - 1)) . "," . $resultsPerPage .";";
 		}
 		else
 		{
 			$sql = $sql . " ORDER BY g.".$sortColg." ".$sortType." ";
-			$sql = $sql . " Limit ". $limit .";";
+			$sql = $sql . " Limit ". ($resultsPerPage * ($pagenum - 1)) . "," . $resultsPerPage .";";
 		}
 
 		$tablChecked = $DB->sql_tabl($sql);
@@ -905,13 +931,107 @@ else if ($tab == 'GamesByUser')
 		}
 
 		list($totalResults) = $DB->sql_row($sqlCounter);
-		print '<p class = "modTools"> Showing a max of '.$limit.' results from '.$totalResults.' total results. </br>';
+		$maxPage = ceil($totalResults / $resultsPerPage);
+		print '<p class = "modTools"> Showing results '.min(((($pagenum - 1) * $resultsPerPage)+1),$totalResults).' to '.min(($pagenum * $resultsPerPage),$totalResults).' of '.$totalResults.' total results. </br>';
 		print $userMessage;
 
 		printGameResults($seeVariant, $seeGamename, $seeGameOver, $seePot, $seeInviteCode, $seePotType, $seeJoinable, $seePhaseLength,
 		$seeAnon, $seePressType, $seeDirector, $seeMinRR, $seeDrawType, $seeWatchedCount, $GamesData);
+
+
+
+
 	}
 	else { print '<p class = advancedSearch> The user you entered is not valid. Please enter a valid user or a User ID of 0 to see your own games.</p>';}
+}
+
+if (isset($_REQUEST['tab'])){
+	//Setting all of the variables for the page button to use so that preferences are kept when changing pages
+	if (isset($_REQUEST["tab"])) {array_push($PageData,new PageObject("tab", $tab));}
+	if (isset($_REQUEST["username"])) {array_push($PageData,new PageObject("username", '"'.$tempUser.'"'));}
+	if (isset($_REQUEST["searchType1"])) {array_push($PageData,new PageObject("searchType1", $searchType1));}
+	if (isset($_REQUEST["type"])) {array_push($PageData,new PageObject("type", $type));}
+	if (isset($_REQUEST["seeUsername"])) {array_push($PageData,new PageObject("seePoints", $seePoints));}
+	if (isset($_REQUEST["seePoints"])) {array_push($PageData,new PageObject("seePoints", $seePoints));}
+	if (isset($_REQUEST["seeJoined"])) {array_push($PageData,new PageObject("seeJoined", $seeJoined));}
+	if (isset($_REQUEST["seeGameCount"])) {array_push($PageData,new PageObject("seeGameCount", $seeGameCount));}
+	if (isset($_REQUEST["seeRR"])) {array_push($PageData,new PageObject("seeRR", $seeRR));}
+	if (isset($_REQUEST["seeNewForumLink"])) {array_push($PageData,new PageObject("seeNewForumLink", $seeNewForumLink));}
+	if (isset($_REQUEST["seeMod"])) {array_push($PageData,new PageObject("seeMod", $seeMod));}
+	if (isset($_REQUEST["seeBanned"])) {array_push($PageData,new PageObject("seeBanned", $seeBanned));}
+	if (isset($_REQUEST["seeGold"])) {array_push($PageData,new PageObject("seeGold", $seeGold));}
+	if (isset($_REQUEST["seeSilver"])) {array_push($PageData,new PageObject("seeSilver", $seeSilver));}
+	if (isset($_REQUEST["seeBronze"])) {array_push($PageData,new PageObject("seeBronze", $seeBronze));}
+	if (isset($_REQUEST["seeAll"])) {array_push($PageData,new PageObject("seeAll", $seeAll));}
+	if (isset($_REQUEST["sortCol"])) {array_push($PageData,new PageObject("sortCol", $sortCol));}
+	if (isset($_REQUEST["sortType"])) {array_push($PageData,new PageObject("sortType", $sortType));}
+	if (isset($_REQUEST["resultsPerPage"])) {array_push($PageData,new PageObject("resultsPerPage", $resultsPerPage));}
+	if (isset($_REQUEST["searchTypeg1"])) {array_push($PageData,new PageObject("searchTypeg1", $searchTypeg1));}
+	if (isset($_REQUEST["searchTypeg2"])) {array_push($PageData,new PageObject("searchTypeg2", $searchTypeg2));}
+	if (isset($_REQUEST["searchTypeg3"])) {array_push($PageData,new PageObject("searchTypeg3", $searchTypeg3));}
+	if (isset($_REQUEST["gamename"])) {array_push($PageData,new PageObject("gamename", $gamename));}
+	if (isset($_REQUEST["gamename2"])) {array_push($PageData,new PageObject("gamename2", $gamename2));}
+	if (isset($_REQUEST["gamename3"])) {array_push($PageData,new PageObject("gamename3", $gamename3));}
+	if (isset($_REQUEST["showOnlyJoinable"])) {array_push($PageData,new PageObject("showOnlyJoinable", $showOnlyJoinable));}
+	if (isset($_REQUEST["seeGamename"])) {array_push($PageData,new PageObject("seeGamename", $seeGamename));}
+	if (isset($_REQUEST["seeGameOver"])) {array_push($PageData,new PageObject("seeGameOver", $seeGameOver));}
+	if (isset($_REQUEST["seePot"])) {array_push($PageData,new PageObject("seePot", $seePot));}
+	if (isset($_REQUEST["seeInviteCode"])) {array_push($PageData,new PageObject("seeInviteCode", $seeInviteCode));}
+	if (isset($_REQUEST["seePotType"])) {array_push($PageData,new PageObject("seePotType", $seePotType));}
+	if (isset($_REQUEST["seeJoinable"])) {array_push($PageData,new PageObject("seeJoinable", $seeJoinable));}
+	if (isset($_REQUEST["seePhaseLength"])) {array_push($PageData,new PageObject("seePhaseLength", $seePhaseLength));}
+	if (isset($_REQUEST["seeAnon"])) {array_push($PageData,new PageObject("seeAnon", $seeAnon));}
+	if (isset($_REQUEST["seePressType"])) {array_push($PageData,new PageObject("seePressType", $seePressType));}
+	if (isset($_REQUEST["seeDirector"])) {array_push($PageData,new PageObject("seeDirector", $seeDirector));}
+	if (isset($_REQUEST["seeMinRR"])) {array_push($PageData,new PageObject("seeMinRR", $seeMinRR));}
+	if (isset($_REQUEST["seeDrawType"])) {array_push($PageData,new PageObject("seeDrawType", $seeDrawType));}
+	if (isset($_REQUEST["seeVariant"])) {array_push($PageData,new PageObject("seeVariant", $seeVariant));}
+	if (isset($_REQUEST["seeWatchedCount"])) {array_push($PageData,new PageObject("seeWatchedCount", $seeWatchedCount));}
+	if (isset($_REQUEST["sortColg"])) {array_push($PageData,new PageObject("sortColg", $sortColg));}
+	if (isset($_REQUEST["username2"])) {array_push($PageData,new PageObject("username2", $username2));}
+	if (isset($_REQUEST["paramUserID"])) {array_push($PageData,new PageObject("paramUserID", $paramUserID));}
+	if (isset($_REQUEST["checkAgainstMe"])) {array_push($PageData,new PageObject("checkAgainstMe", $checkAgainstMe));}
+
+
+	print '</br>';
+
+
+	if ($pagenum > 3)
+	{
+		printPageButton(1,$PageData,False);
+	}
+	if ($pagenum > 4)
+	{
+		print "...";
+	}
+	if ($pagenum > 2)
+	{
+		printPageButton($pagenum-2,$PageData, False);
+	}
+	if ($pagenum > 1)
+	{
+		printPageButton($pagenum-1,$PageData, False);
+	}
+	if ($maxPage > 1)
+	{
+		printPageButton($pagenum,$PageData, True);
+	}
+	if ($pagenum < $maxPage)
+	{
+		printPageButton($pagenum+1,$PageData, False);
+	}
+	if ($pagenum < $maxPage-1)
+	{
+		printPageButton($pagenum+2,$PageData, False);
+	}
+	if ($pagenum < $maxPage-3)
+	{
+		print "...";
+	}
+	if ($pagenum < $maxPage-2)
+	{
+		printPageButton($maxPage,$PageData, False);
+	}
 }
 
 /*
@@ -980,6 +1100,30 @@ $seeAnon, $seePressType, $seeDirector, $seeMinRR, $seeDrawType, $seeWatchedCount
 		}
 		print "</TABLE>";
 }
+
+function printPageButton($pagenum,$pageData, $main){
+	print '<div style="display:inline-block; margin:3px;">';
+	print '<FORM method="get" action=detailedSearch.php>';
+	foreach($pageData as $pair)
+	{
+		print '<input type="hidden" name="'.$pair->name.'" value='.$pair->value.'>';
+	}
+	if ($main)
+	{
+		print '<input type="submit" name="pagenum" class="form-submit" value='.$pagenum.' style="background-image: -webkit-gradient(linear, left top, left bottom, color-stop(0%, #ffff00), color-stop(50%, #546a9e), color-stop(50%, #36518f), color-stop(100%, #3d5691));
+	  background-image: -webkit-linear-gradient(top, #ffffff 0%, #dfdfdf 50%, #bfbfbf 50%, #9f9f9f 100%);
+	  background-image: -moz-linear-gradient(top, #ffffff 0%, #dfdfdf 50%, #bfbfbf 50%, #9f9f9f 100%);
+	  background-image: -ms-linear-gradient(top, #ffffff 0%, #dfdfdf 50%, #bfbfbf 50%, #9f9f9f 100%);
+	  background-image: -o-linear-gradient(top, #ffffff 0%, #dfdfdf 50%, #bfbfbf 50%, #9f9f9f 100%);
+	  background-image: linear-gradient(top, #ffffff 0%, #dfdfdf 50%, #bfbfbf 50%, #9f9f9f 100%);
+		color: #46619f;" /></form>';
+	} else {
+		print '<input type="submit" name="pagenum" class="form-submit" value='.$pagenum.' /></form>';
+	}
+	print '</div>';
+}
+
+
 print '</div>';
 ?>
 
