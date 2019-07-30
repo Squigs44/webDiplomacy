@@ -234,6 +234,16 @@ class adminActionsRestricted extends adminActionsForum
 				'name' => 'API - Show API key and permissions for a user',
 				'description' => 'Display API key and permissions for a user.',
 				'params' => array('userID'=>'User ID'),
+			),
+			'recalculateGR' => array(
+				'name' => 'Recalculate Ghost Ratings',
+				'description' => 'Wipe all GR, recalculate, and repopulate database.',
+				'params' => array(),
+			),
+			'updateVariantInfo' => array(
+				'name' => 'Update wD_VariantInfo',
+				'description' => 'Will add or update the info in wD_VariantInfo for a given variantID. If left blank, it will loop through all variants.',
+				'params' => array('variantID'=>'Variant ID'),
 			)
 		);
 
@@ -916,6 +926,101 @@ class adminActionsRestricted extends adminActionsForum
 		<div><strong>listGamesWithPlayersInCD</strong>: ".$row['listGamesWithPlayersInCD']."</div>
 		<div><strong>submitOrdersForUserInCD</strong>: ".$row['submitOrdersForUserInCD']."</div>
 		";
+	}
+	public function recalculateGR($params) {
+		require_once(l_r('ghostratings/calculations.php'));
+		global $DB;
+		$DB->sql_put("DELETE FROM wD_GhostRatings");
+		$DB->sql_put("DELETE FROM wD_GhostRatingsHistory");
+		$DB->sql_put("DELETE FROM wD_GhostRatingsBackup");
+		$data = $DB->sql_tabl("SELECT id, variantID, pressType, potType, turn, gameOver, phaseMinutes FROM wD_Games WHERE gameOver <> 'No';");
+		while (list($gameID, $variantID, $pressType, $potType, $turn, $gameOver, $phaseMinutes) = $DB->tabl_row($data))
+		{
+			$winnerID = 0;
+			list($SCTarget, $SCTotal) = $DB->sql_row("SELECT supplyCenterTarget, supplyCenterCount FROM wD_VariantInfo WHERE variantID=".$variantID);
+			$players = $DB->sql_tabl("SELECT userID, supplyCenterNo FROM wD_Members WHERE gameID =".$gameID);
+			$SCcounts = array();
+			while(list($userID, $SCcount) = $DB->tabl_row($players))
+			{
+				$SCcounts[$userID] = $SCcount;
+				if ($SCcount >= $SCTarget)
+				{
+					$winnerID = $userID;
+				}
+			}
+			$ghostRatings = new GhostRatings($gameID, $SCcounts, $variantID, $pressType, $potType, $turn, $gameOver, $phaseMinutes, $SCTarget, $SCTotal, $winnerID);
+		  $ghostRatings->processGR();
+		}
+		return l_t('GR recalculated');
+	}
+	public function recalculateGRConfirm(array $params)
+	{
+		return l_t('Are you sure you want to recalculate GR?');
+	}
+	public function updateVariantInfo($params) {
+		global $DB;
+		$variantID = (int)$params['variantID'];
+		$variantIDs = array();
+		if ($variantID <> 0)
+		{
+			$variantIDs[] = $variantID;
+		}
+		else 
+		{
+			foreach(Config::$variants as $id => $name)
+			{
+				$variantIDs[] = $id;
+			}
+		}
+		foreach($variantIDs as $key => $value)
+		{
+			$sql = "INSERT INTO wD_VariantInfo(variantID, mapID, supplyCenterTarget, supplyCenterCount, countryCount, name, fullName, description, author";
+			$Variant=libVariant::loadFromVariantID($value);
+			$mapID = $Variant->mapID;
+			$SCCount = $Variant->supplyCenterCount;
+			$SCTarget = $Variant->supplyCenterTarget;
+			$name = $Variant->name;
+			$fullName = $Variant->fullName;
+			$description = $Variant->description;
+			$author = $Variant->author;
+			$countryCount = count($Variant->countries);
+			$sql2 = "VALUES(".$value.", ".$mapID.", ".$SCTarget.", ".$SCCount.", ".$countryCount.", '".$name."', '".$fullName."', '".$description."', '".$author."'";
+			$adapter = '';
+			if(isset($Variant->$adapter))
+			{
+				$sql .= ", adapter";
+				$adapter = $Variant->adapter;
+				$sql2 = $sql2.", '".$adapter."'";
+			}
+			$version = '';
+			if(isset($Variant->$version))
+			{
+				$sql .= ", version";
+				$version = $Variant->version;
+				$sql2 = $sql2.", '".$version."'";
+			}
+			$codeVersion = '';
+			if(isset($Variant->$codeVersion))
+			{
+				$sql .= ", codeVersion";
+				$codeVersion = $Variant->codeVersion;
+				$sql2 = $sql2.", '".$codeVersion."'";
+			}
+			$homepage = '';
+			if(isset($Variant->$homepage))
+			{
+				$sql .= ", homepage";
+				$homepage = $Variant->homepage;
+				$sql2 = $sql2.", '".$homepage."'";
+			}
+			$countryList = implode(",",$Variant->countries);
+			$sql2 = $sql2.", '".$countryList."')";
+			$sql .= ", countriesList) ";
+			$sql .= $sql2;
+			$DB->sql_put("DELETE FROM wD_VariantInfo WHERE variantID=".$value);
+			$DB->sql_put($sql);
+		}
+		return l_t('Variant Info Updated');
 	}
 }
 
