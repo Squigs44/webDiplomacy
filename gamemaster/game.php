@@ -948,21 +948,29 @@ class processGame extends Game
 		 * 'Playing'/'Left' -> 'Won'/'Survived'/'Resigned'
 		 * ('Defeated' status members are already set by now)
 		 */
+		 global $DB;
+		 $DB->sql_put("UPDATE wD_Games SET finishTime=".time());
+		 
 		 //Do GR Stuff
  		$SCcounts = array();
+		$memberStatus = array();
  		foreach($this->Members->ByStatus['Playing'] as $Member)
  		{
  			$SCcounts[$Member->userID] = $Member->supplyCenterNo;
+			$memberStatus[$Member->userID] = 'Survived';
  		}
  		foreach($this->Members->ByStatus['Left'] as $Member)
  		{
  			$SCcounts[$Member->userID] = $Member->supplyCenterNo;
+			$memberStatus[$Member->userID] = 'Resigned';
  		}
 		foreach($this->Members->ByStatus['Defeated'] as $Member)
  		{
- 			$SCcounts[$Member->userID] = $Member->supplyCenterNo;
+ 			$SCcounts[$Member->userID] = 0;
+			$memberStatus[$Member->userID] = 'Defeated';
  		}
- 		$ghostRatings = new GhostRatings($this->id, $SCcounts, $this->variantID, $this->pressType, $this->potType, $this->turn, "Won", $this->phaseMinutes, $this->Variant->terrIDByName["supplyCenterTarget"], $this->Variant->terrIDByName["supplyCenterCount"], $Winner->userID);
+		$memberStatus[$Winner->userID] = 'Won';
+ 		$ghostRatings = new GhostRatings($this->id, $SCcounts, $memberStatus, $this->variantID, $this->pressType, $this->potType, $this->turn, "Won", $this->phaseMinutes, $this->Variant->terrIDByName["supplyCenterTarget"], $this->Variant->terrIDByName["supplyCenterCount"], $Winner->userID, time());
  	  $ghostRatings->processGR();
 		 
 		$this->Members->setWon($Winner);
@@ -1134,6 +1142,7 @@ class processGame extends Game
 	public function setDrawn()
 	{
 		global $DB;
+		$DB->sql_put("UPDATE wD_Games SET finishTime=".time());
 
 		// Unpause the game so that the processTime data isn't finalized as NULL
 		if( $this->processStatus == 'Paused' )
@@ -1150,19 +1159,23 @@ class processGame extends Game
 		}
 		//Do GR Stuff
 		$SCcounts = array();
+		$memberStatus = array();
 		foreach($this->Members->ByStatus['Playing'] as $Member)
 		{
 			$SCcounts[$Member->userID] = $Member->supplyCenterNo;
+			$memberStatus[$Member->userID] = 'Drawn';
 		}
 		foreach($this->Members->ByStatus['Left'] as $Member)
 		{
 			$SCcounts[$Member->userID] = $Member->supplyCenterNo;
+			$memberStatus[$Member->userID] = 'Resigned';
 		}
 		foreach($this->Members->ByStatus['Defeated'] as $Member)
  		{
- 			$SCcounts[$Member->userID] = $Member->supplyCenterNo;
+ 			$SCcounts[$Member->userID] = 0;
+			$memberStatus[$Member->userID] = 'Defeated';
  		}
-		$ghostRatings = new GhostRatings($this->id, $SCcounts, $this->variantID, $this->pressType, $this->potType, $this->turn, "Draw", $this->phaseMinutes, $this->Variant->terrIDByName["supplyCenterTarget"], $this->Variant->terrIDByName["supplyCenterCount"], 0);
+		$ghostRatings = new GhostRatings($this->id, $SCcounts, $memberStatus, $this->variantID, $this->pressType, $this->potType, $this->turn, "Drawn", $this->phaseMinutes, $this->Variant->terrIDByName["supplyCenterTarget"], $this->Variant->terrIDByName["supplyCenterCount"], 0, time());
 	  $ghostRatings->processGR();
 
 		// Sets the Members statuses to Drawn as needed, gives refunds, sends messages

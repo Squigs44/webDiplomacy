@@ -933,22 +933,24 @@ class adminActionsRestricted extends adminActionsForum
 		$DB->sql_put("DELETE FROM wD_GhostRatings");
 		$DB->sql_put("DELETE FROM wD_GhostRatingsHistory");
 		$DB->sql_put("DELETE FROM wD_GhostRatingsBackup");
-		$data = $DB->sql_tabl("SELECT id, variantID, pressType, potType, turn, gameOver, phaseMinutes FROM wD_Games WHERE gameOver <> 'No';");
-		while (list($gameID, $variantID, $pressType, $potType, $turn, $gameOver, $phaseMinutes) = $DB->tabl_row($data))
+		$data = $DB->sql_tabl("SELECT id, variantID, pressType, potType, turn, gameOver, phaseMinutes, finishTime FROM wD_Games WHERE gameOver <> 'No' ORDER BY finishTime ASC;");
+		while (list($gameID, $variantID, $pressType, $potType, $turn, $gameOver, $phaseMinutes, $time) = $DB->tabl_row($data))
 		{
 			$winnerID = 0;
 			list($SCTarget, $SCTotal) = $DB->sql_row("SELECT supplyCenterTarget, supplyCenterCount FROM wD_VariantInfo WHERE variantID=".$variantID);
-			$players = $DB->sql_tabl("SELECT userID, supplyCenterNo FROM wD_Members WHERE gameID =".$gameID);
+			$players = $DB->sql_tabl("SELECT userID, supplyCenterNo, status FROM wD_Members WHERE gameID =".$gameID);
 			$SCcounts = array();
-			while(list($userID, $SCcount) = $DB->tabl_row($players))
+			$memberStatus = array();
+			while(list($userID, $SCcount, $status) = $DB->tabl_row($players))
 			{
 				$SCcounts[$userID] = $SCcount;
-				if ($SCcount >= $SCTarget)
+				$memberStatus[$userID] = $status;
+				if ($status == 'Won')
 				{
 					$winnerID = $userID;
 				}
 			}
-			$ghostRatings = new GhostRatings($gameID, $SCcounts, $variantID, $pressType, $potType, $turn, $gameOver, $phaseMinutes, $SCTarget, $SCTotal, $winnerID);
+			$ghostRatings = new GhostRatings($gameID, $SCcounts, $memberStatus, $variantID, $pressType, $potType, $turn, $gameOver, $phaseMinutes, $SCTarget, $SCTotal, $winnerID, $time);
 		  $ghostRatings->processGR();
 		}
 		return l_t('GR recalculated');

@@ -28,6 +28,7 @@ defined('IN_CODE') or die('This script can not be run by itself.');
  {  
    private $gameID;
    private $SCcounts;
+   private $memberStatus;
    private $variantID;
    private $pressType;
    private $potType;
@@ -37,6 +38,7 @@ defined('IN_CODE') or die('This script can not be run by itself.');
    private $victorySC;
    private $variantSC;
    private $winner;
+   private $time;
    
    private $variantMod;
    private $pressMod;
@@ -47,10 +49,11 @@ defined('IN_CODE') or die('This script can not be run by itself.');
    private $modMultiplier;
 
  	
- 	public function __construct($gameID, $SCcounts, $variantID, $pressType, $potType, $gameTurns, $gameStatus, $phaseMinutes, $victorySC, $variantSC, $winner)
+ 	public function __construct($gameID, $SCcounts, $memberStatus, $variantID, $pressType, $potType, $gameTurns, $gameStatus, $phaseMinutes, $victorySC, $variantSC, $winner, $time)
    {
      $this->gameID = $gameID;
      $this->SCcounts = $SCcounts;
+     $this->memberStatus = $memberStatus;
      $this->variantID = $variantID;
      $this->pressType = $pressType;
      $this->potType = $potType;
@@ -59,7 +62,9 @@ defined('IN_CODE') or die('This script can not be run by itself.');
      $this->phaseMinutes = $phaseMinutes;
      $this->variantMod = Config::$grVariantMods[$this->variantID];
      $this->victorySC = $victorySC;
+     $this->variantSC = $variantSC;
      $this->winner = $winner;
+     $this->time = $time;
      $this->k = 32;
      $this->start = 100;
      $this->pressMod = Config::$grPressMods[$this->pressType];
@@ -118,7 +123,7 @@ defined('IN_CODE') or die('This script can not be run by itself.');
            $monthYear = array();
            $grSum = 0;
            $first = True;
-           $date = date('my');
+           $date = date('my',$this->time);
            foreach($this->SCcounts as $userID=>$scs)
            {
              $rating = $this->start;
@@ -166,7 +171,7 @@ defined('IN_CODE') or die('This script can not be run by itself.');
                  }
                  $secondplace[$userID] = $secondplace[$userID] * (1 - $firstplace[$userID]);
                  $secondplaceSum += $secondplace[$userID];
-                 if ($this->SCcounts[$userID] > 0)
+                 if ($this->memberStatus[$userID] == 'Drawn')
                  {
                    $drawNum += 1;
                  }
@@ -174,9 +179,9 @@ defined('IN_CODE') or die('This script can not be run by itself.');
                foreach ($userGR as $userID => $rating)
                {
                  $expectedResult[$userID] = (($this->victorySC * $firstplace[$userID]) + ((($this->variantSC - $this->victorySC) * $secondplace[$userID]) / $secondplaceSum)) / $this->variantSC;
-                 if ($this->gameStatus == "Draw")
+                 if ($this->gameStatus == "Drawn")
                  {
-                   if($this->SCcounts[$userID] <> 0)
+                   if($this->memberStatus[$userID] == 'Drawn')
                    {
                      $actualResult[$userID] = 1/$drawNum;
                    }
@@ -187,7 +192,7 @@ defined('IN_CODE') or die('This script can not be run by itself.');
                  }
                  else
                  {
-                   $actualResult[$userID] = $this->SCcounts / $this->variantSC;
+                   $actualResult[$userID] = $this->SCcounts[$userID] / (float) $this->variantSC;
                  }
                  $grAdjustment[$userID] = (($grSum / $this->modvalue) * ($actualResult[$userID]-$expectedResult[$userID]));
                }
@@ -198,7 +203,7 @@ defined('IN_CODE') or die('This script can not be run by itself.');
                $drawNum = 0;
                foreach($userGR as $userID => $rating)
                {
-                 if ($this->SCcounts[$userID] > 0)
+                 if ($this->memberStatus[$userID] == 'Drawn')
                  {
                    $drawNum += 1;
                  }
@@ -206,9 +211,9 @@ defined('IN_CODE') or die('This script can not be run by itself.');
                foreach ($userGR as $userID => $rating)
                {
                  $expectedResult[$userID] = $rating / $grSum;
-                 if ($this->gameStatus == "Draw")
+                 if ($this->gameStatus == "Drawn")
                  {
-                   if($this->SCcounts[$userID] <> 0)
+                   if($this->memberStatus[$userID] == 'Drawn')
                    {
                      $actualResult[$userID] = 1/$drawNum;
                    }
@@ -242,7 +247,7 @@ defined('IN_CODE') or die('This script can not be run by itself.');
                $drawNum = 0;
                foreach($userGR as $userID => $rating)
                {
-                 if ($this->SCcounts[$userID] > 0)
+                 if ($this->memberStatus[$userID] == 'Drawn')
                  {
                    $drawNum += 1;
                  }
@@ -254,7 +259,7 @@ defined('IN_CODE') or die('This script can not be run by itself.');
                foreach ($userGR as $userID => $rating)
                {
                  $expectedResult[$userID] = $expectedSquare[$userID] / $expectedSum;
-                 if ($this->gameStatus == "Draw")
+                 if ($this->gameStatus == "Drawn" && $this->memberStatus[$userID] == 'Drawn')
                  {
                    $actualResult[$userID] = $actualSquare[$userID] /$actualSum;
                  }
@@ -294,7 +299,7 @@ defined('IN_CODE') or die('This script can not be run by itself.');
                    $id2 = $userID;
                  }
                }
-               if ($this->gameStatus == "Draw")
+               if ($this->gameStatus == "Drawn")
                {
                  $result = 0.5;
                }
@@ -329,7 +334,7 @@ defined('IN_CODE') or die('This script can not be run by itself.');
              }
              $sqlUpdate = $sqlUpdate . " WHERE categoryID=".$categoryID." AND userID=".$userID;
              $DB->sql_put($sqlUpdate);
-             $DB->sql_put("INSERT INTO wD_GhostRatingsBackup(userID, categoryID, gameID, adjustment, timeFinished) VALUES(".$userID.", ".$categoryID.", ".$this->gameID.", ".$adjustment.", ".time().")");
+             $DB->sql_put("INSERT INTO wD_GhostRatingsBackup(userID, categoryID, gameID, adjustment, timeFinished) VALUES(".$userID.", ".$categoryID.", ".$this->gameID.", ".$adjustment.", ".$this->time.")");
            }
          }
        }
