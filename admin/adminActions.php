@@ -948,6 +948,9 @@ class adminActions extends adminActionsForms
 
 		if( $banUser->type['Admin'] )
 			throw new Exception(l_t("Admins can't be banned"));
+			
+		if( $banUser->type['Bot'] )
+			throw new Exception(l_t("Bots can't be banned"));
 
 		if( $banUser->type['Moderator'] and ! $User->type['Admin'] )
 			throw new Exception(l_t("Moderators can't be banned by non-admins"));
@@ -1031,6 +1034,11 @@ class adminActions extends adminActionsForms
 
 		$userID = (int)$params['userID'];
 		$days   = (int)$params['ban'];
+		
+		$banUser = new User($userID);
+		
+		if( $banUser->type['Bot'] )
+			throw new Exception(l_t("Bots can't be banned"));
 
 		if( !isset($params['reason']) || strlen($params['reason'])==0 )
 			return 'Cannot temp ban user without a reason.';
@@ -1062,6 +1070,7 @@ class adminActions extends adminActionsForms
 	public function givePoints(array $params)
 	{
 		global $DB;
+		$User = new User($params['userID']);
 
 		$userID = (int)$params['userID'];
 		$points = (int)$params['points'];
@@ -1073,6 +1082,14 @@ class adminActions extends adminActionsForms
 		else
 		{
 			$points = (-1)*$points;
+
+			if ( ($User->points - $points) < 0) 
+			{
+				$modMessedUp = $User->points;
+				$DB->sql_put("UPDATE wD_Users SET points = 0 WHERE id=".$userID);
+				return l_t('This user had all their points ('.$modMessedUp.') removed because a mod tried removing more points than the user had.',$points,libHTML::points());
+			}
+
 			$DB->sql_put("UPDATE wD_Users SET points = points - ".$points." WHERE id=".$userID);
 		}
 
