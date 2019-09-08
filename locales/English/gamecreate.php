@@ -106,29 +106,14 @@ defined('IN_CODE') or die('This script can not be run by itself.');
 						All: Global and Private Messaging allowed. </br></br>
 						Global Only: Only Global Messaging allowed.</br></br>
 						None: No messaging allowed.</br></br>
-						<?php
-						if($User->type['Moderator'])
-						{
-							print 'None, fill empty spots with bots: No messaging allowed, if the game has at least 2 human players it will 
-							fill with bots if there are empty spaces at the designated start time instead of being cancelled. This type 
-							of game will default to a 5 point bet, unranked, and anonymous regardless of what settings you select.<b>
-							This only will work for classic games, other variants will ignore this setting.</b></br></br>';
-						}
-						?>
 						Rulebook: No messaging allowed during build and retreat phases.</br>
 					</p>
 				</div>
 			</div>
-			<select class = "gameCreate" name="newGame[pressType]">
+			<select class = "gameCreate" id="pressType" name="newGame[pressType]" onchange="setBotFill()">
 				<option name="newGame[pressType]" value="Regular" selected>All </option>
 				<option name="newGame[pressType]" value="PublicPressOnly">Global only</option>
 				<option name="newGame[pressType]" value="NoPress">None (No messaging)</option>
-				<?php
-				if($User->type['Moderator'])
-				{
-					print '<option name="newGame[pressType]" value="NoPressWithBots">None, fill empty spots with bots</option>';
-				}
-				?>
 				<option name="newGame[pressType]" value="RulebookPress">Per rulebook</option>
 			</select>
 
@@ -158,7 +143,7 @@ defined('IN_CODE') or die('This script can not be run by itself.');
 					</p>
 				</div>
 			</div>
-			<select id="variantID" class = "gameCreate" name="newGame[variantID]">
+			<select id="variant" class = "gameCreate" name="newGame[variantID]" onchange="setBotFill()">
 			<?php
 			$first=true;
 			foreach(Config::$variants as $variantID=>$variantName)
@@ -173,8 +158,15 @@ defined('IN_CODE') or die('This script can not be run by itself.');
 			}
 			print '</select>';
 			?>
-			
 			</br></br>
+			<?php
+			if($User->type['Moderator'])
+			{
+				print('<div id="botFill" style="display:none"><strong>Fill Empty Spots with Bots: </strong>
+				<input type="checkbox" id="botBox" class="gameCreate" name="newGame[botFill]" value="Yes">
+				</br></br></div>');
+			}
+			?>
 			<strong>Scoring:(<a href="points.php#DSS">See scoring types here</a>)</strong>
 			<img id = "modBtnScoring" height="16" width="16" src="images/icons/help.png" alt="Help" title="Help" />
 			<div id="scoringModal" class="modal">
@@ -325,5 +317,21 @@ window.onclick = function(event) {
 	if (event.target == modal5) { modal5.style.display = "none"; }
 	if (event.target == modal6) { modal6.style.display = "none"; }
 	if (event.target == modal7) { modal7.style.display = "none"; }
+}
+
+function setBotFill(){
+	console.log("setBotFill triggered");
+	content = document.getElementById('botFill');
+	ePress = document.getElementById('pressType');
+	pressType = ePress.options[ePress.selectedIndex].value;
+	eVariant = document.getElementById('variant');
+	variant = eVariant.options[eVariant.selectedIndex].value;
+	if (pressType == "NoPress" && variant == 1){
+		content.style.display = "block";
+	}
+	else{
+		content.style.display = "none";
+		document.getElementById("botBox").checked = false;
+	}
 }
 </script>
